@@ -50,7 +50,7 @@
         packages.hello = pkgs.hello;
         defaultPackage = self.packages.${system}.hello;
         devShell = pkgs.mkShell {
-          buildInputs = with pkgs; [ nodejs yarn setupScript ];
+          buildInputs = with pkgs; [ nodejs-16_x setupScript ];
         };
       });
 }
