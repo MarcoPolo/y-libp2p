@@ -3,10 +3,8 @@ import type { Doc as YDoc } from 'yjs'
 import type Libp2p from 'libp2p'
 import { Uint8ArrayEquals } from './util'
 import PeerId from 'peer-id'
-import { BufferList, MuxedStream } from 'libp2p-interfaces/src/pubsub'
-import { pipe } from 'it-pipe'
+import type { BufferList } from 'libp2p-interfaces/src/pubsub'
 import { Connection } from 'libp2p-interfaces/src/topology'
-import { typeListForEachSnapshot } from 'yjs/dist/src/internals'
 // @ts-ignore
 import * as awarenessProtocol from 'y-protocols/dist/awareness.cjs'
 import type { Awareness } from 'y-protocols/awareness'
@@ -31,7 +29,7 @@ function syncProtocol(topic: string): string {
 }
 
 function awarenessProtocolTopic(topic: string): string {
-  return `${topic}/sync/0.0.1`
+  return `${topic}/awareness/0.0.1`
 }
 
 class Provider {
@@ -82,6 +80,10 @@ class Provider {
   }
 
   private publishUpdate(updateData: Uint8Array) {
+    if (!this.node.isStarted()) {
+      return
+    }
+
     this.node.pubsub.publish(changesTopic(this.topic), updateData);
     const stateV = Y.encodeStateVector(this.ydoc)
     this.stateVectors[this.peerID] = stateV;
@@ -106,7 +108,7 @@ class Provider {
   }
 
   private onPubSubAwareness(msg: any) {
-    console.log("Got awareness update", msg)
+    // console.log("Got awareness update", msg)
     awarenessProtocol.applyAwarenessUpdate(this.awareness, msg.data, this)
   }
 

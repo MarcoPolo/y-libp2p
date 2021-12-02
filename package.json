@@ -13,12 +13,10 @@
     "@types/jest": "^27.0.3",
     "babel-jest": "^27.4.2",
     "jest": "^27.4.3",
-    "libp2p": "^0.34.0",
     "libp2p-gossipsub": "^0.11.4",
     "libp2p-mplex": "^0.10.4",
     "libp2p-websockets": "^0.16.2",
     "multiaddr": "^10.0.1",
-    "peer-id": "^0.16.0",
     "typescript": "^4.5.2"
   },
   "engines": {
@@ -29,8 +27,9 @@
     "build": "tsc"
   },
   "dependencies": {
-    "it-pipe": "^1.1.0",
-    "y-protocols": "^1.0.5",
-    "yjs": "^13.5.22"
+    "y-protocols": "^1.0.x",
+    "yjs": "13.5.x",
+    "libp2p": ">=0.33.0",
+    "peer-id": ">=0.16.0"
   }
 }

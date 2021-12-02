@@ -20,7 +20,7 @@ async function waitFor(condition: () => boolean, timeout: number = 3000) {
 }
 
 
-it('Provider syncs doc across 2 peers', async () => {
+it.only('Provider syncs doc across 2 peers', async () => {
   const topic = 'test'
   const ydoc1 = new YDoc()
   const ydoc2 = new YDoc()
