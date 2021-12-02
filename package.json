@@ -28,8 +28,10 @@
   },
   "dependencies": {
     "y-protocols": "^1.0.x",
-    "yjs": "13.5.x",
-    "libp2p": ">=0.33.0",
     "peer-id": ">=0.16.0"
+  },
+  "peerDependencies": {
+    "yjs": "13.5.x",
+    "libp2p": ">=0.33.0"
   }
 }
