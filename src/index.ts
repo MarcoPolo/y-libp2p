@@ -16,20 +16,21 @@ type ProtocolStream = {
   close: () => void
 }
 
+
 function changesTopic(topic: string): string {
-  return `${topic}/changes`
+  return `/marcopolo/gossipPad/${topic}/changes/0.0.01`
 }
 
 function stateVectorTopic(topic: string): string {
-  return `${topic}/stateVector`
+  return `/marcopolo/gossipPad/${topic}/stateVector/0.0.1`
 }
 
 function syncProtocol(topic: string): string {
-  return `${topic}/sync/0.0.1`
+  return `/marcopolo/gossipPad/${topic}/sync/0.0.1`
 }
 
 function awarenessProtocolTopic(topic: string): string {
-  return `${topic}/awareness/0.0.1`
+  return `/marcopolo/gossipPad/${topic}/awareness/0.0.1`
 }
 
 class Provider {
@@ -39,6 +40,7 @@ class Provider {
   topic: string
   stateVectors: { [key: string]: Uint8Array } = {};
   unsyncedPeers: Set<string> = new Set();
+  initialSync = false;
 
   public awareness: Awareness;
 
@@ -69,6 +71,51 @@ class Provider {
 
     // @ts-ignore
     node.handle(syncProtocol(topic), this.onSyncMsg.bind(this));
+
+    this.tryInitialSync(this.stateVectors[this.peerID], this);
+  }
+
+  destroy() {
+    this.node.pubsub.unsubscribe(changesTopic(this.topic))
+    this.node.pubsub.removeAllListeners(changesTopic(this.topic))
+
+    this.node.pubsub.unsubscribe(stateVectorTopic(this.topic))
+    this.node.pubsub.removeAllListeners(stateVectorTopic(this.topic))
+
+    this.node.pubsub.unsubscribe(awarenessProtocolTopic(this.topic))
+    this.node.pubsub.removeAllListeners(awarenessProtocolTopic(this.topic))
+
+    // @ts-ignore
+    node.unhandle(syncProtocol(topic))
+
+    this.initialSync = true;
+  }
+
+  // Not required, but nice if we can get synced against a peer sooner rather than latter
+  private async tryInitialSync(updateData: Uint8Array, origin: this | any) {
+    const tries = 10;
+    const maxWaitTime = 1000;
+    let waitTime = 100;
+    for (let i = 0; i < tries; i++) {
+      if (this.initialSync) {
+        return
+      }
+      const peers = [...this.node.pubsub.topics.get(stateVectorTopic(this.topic)) || []]
+
+      if (peers.length !== 0) {
+        const peer = peers[i % peers.length]
+        try {
+          await this.syncPeer(peer)
+          this.initialSync = true;
+          return true
+        } catch (e) {
+          console.warn("failed to sync with anyone", e)
+        }
+      }
+
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+      waitTime = Math.min(waitTime * 2, maxWaitTime)
+    }
   }
 
   private onUpdate(updateData: Uint8Array, origin: this | any) {
@@ -113,6 +160,7 @@ class Provider {
   }
 
   private updateYdoc(updateData: Uint8Array, origin: any) {
+    this.initialSync = true;
     Y.applyUpdate(this.ydoc, updateData, this);
     this.stateVectors[this.peerID] = Y.encodeStateVector(this.ydoc)
   }

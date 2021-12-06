@@ -24,7 +24,8 @@
   },
   "scripts": {
     "test": "jest",
-    "build": "tsc"
+    "build": "tsc",
+    "build-watch": "tsc -w"
   },
   "dependencies": {
     "y-protocols": "^1.0.x",
