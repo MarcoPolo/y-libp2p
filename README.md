@@ -4,7 +4,9 @@
 Uses [gossipsub](https://github.com/libp2p/specs/tree/master/pubsub/gossipsub)
 to share updates.
 
-Demo: [https://gossippad-marcopolo-io.ipns.dweb.link/](https://gossippad-marcopolo-io.ipns.dweb.link/)
+Demo:
+[https://gossippad-marcopolo-io.ipns.dweb.link/](https://gossippad-marcopolo-io.ipns.dweb.link/)
+(Src: https://github.com/marcopolo/gossip-pad)
 
 ## Usage
 
