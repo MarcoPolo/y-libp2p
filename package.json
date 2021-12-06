@@ -1,6 +1,6 @@
 {
   "name": "y-libp2p",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "js-libp2p provider for yjs",
   "main": "dist/index.js",
   "author": "marcopolo",
