@@ -1,24 +1,24 @@
 import * as Y from 'yjs'
 import type { Doc as YDoc } from 'yjs'
-import type Libp2p from 'libp2p'
-import { Uint8ArrayEquals } from './util'
-import PeerId from 'peer-id'
-import type { BufferList } from 'libp2p-interfaces/src/pubsub'
-import { Connection } from 'libp2p-interfaces/src/topology'
+import { Libp2p as ILibp2p } from "libp2p";
+import { Uint8ArrayEquals } from './util.js'
+import { Connection } from '@libp2p/interface-connection';
 // @ts-ignore
 import * as awarenessProtocol from 'y-protocols/dist/awareness.cjs'
 import type { Awareness } from 'y-protocols/awareness'
 
+import { peerIdFromString } from "@libp2p/peer-id";
+
 // the Muxedstream type is wrong for the protocol streams
 type ProtocolStream = {
   sink: (data: Iterable<any> | AsyncIterable<any>) => Promise<void>
-  source: AsyncIterable<BufferList>
+  source: AsyncIterable<Uint8Array>
   close: () => void
 }
 
 
 function changesTopic(topic: string): string {
-  return `/marcopolo/gossipPad/${topic}/changes/0.0.01`
+  return `/marcopolo/gossipPad/${topic}/changes/0.0.01`;
 }
 
 function stateVectorTopic(topic: string): string {
@@ -33,9 +33,9 @@ function awarenessProtocolTopic(topic: string): string {
   return `/marcopolo/gossipPad/${topic}/awareness/0.0.1`
 }
 
-class Provider {
+export class Provider {  
   ydoc: YDoc;
-  node: Libp2p;
+  node: ILibp2p;
   peerID: string;
   topic: string
   stateVectors: { [key: string]: Uint8Array } = {};
@@ -46,11 +46,11 @@ class Provider {
 
   aggressivelyKeepPeersUpdated: boolean = true;
 
-  constructor(ydoc: YDoc, node: Libp2p, topic: string) {
+  constructor(ydoc: YDoc, node: ILibp2p, topic: string) {
     this.ydoc = ydoc;
     this.node = node;
     this.topic = topic;
-    this.peerID = this.node.peerId.toB58String()
+    this.peerID = this.node.peerId.toString()
     this.stateVectors[this.peerID] = Y.encodeStateVector(this.ydoc)
     this.awareness = new awarenessProtocol.Awareness(ydoc)
 
@@ -61,14 +61,23 @@ class Provider {
     ydoc.on('update', this.onUpdate.bind(this));
 
     node.pubsub.subscribe(changesTopic(topic))
-    node.pubsub.on(changesTopic(topic), this.onPubSubChanges.bind(this));
-
     node.pubsub.subscribe(stateVectorTopic(topic))
-    node.pubsub.on(stateVectorTopic(topic), this.onPubSubStateVector.bind(this));
-
     node.pubsub.subscribe(awarenessProtocolTopic(topic))
-    node.pubsub.on(awarenessProtocolTopic(topic), this.onPubSubAwareness.bind(this));
 
+    this.node.pubsub.addEventListener('message', async (event) => {
+      if (event.detail.topic === changesTopic(topic)) {
+        this.onPubSubChanges.bind(this)
+      }
+
+      if (event.detail.topic === stateVectorTopic(topic)) {
+        this.onPubSubStateVector.bind(this)
+      }
+
+      if (event.detail.topic === awarenessProtocolTopic(topic)) {
+        this.onPubSubAwareness.bind(this)
+      }
+    });
+    
     // @ts-ignore
     node.handle(syncProtocol(topic), this.onSyncMsg.bind(this));
 
@@ -77,13 +86,10 @@ class Provider {
 
   destroy() {
     this.node.pubsub.unsubscribe(changesTopic(this.topic))
-    this.node.pubsub.removeAllListeners(changesTopic(this.topic))
-
     this.node.pubsub.unsubscribe(stateVectorTopic(this.topic))
-    this.node.pubsub.removeAllListeners(stateVectorTopic(this.topic))
-
     this.node.pubsub.unsubscribe(awarenessProtocolTopic(this.topic))
-    this.node.pubsub.removeAllListeners(awarenessProtocolTopic(this.topic))
+
+    this.node.pubsub.removeEventListener('message');
 
     // @ts-ignore
     node.unhandle(syncProtocol(topic))
@@ -92,7 +98,7 @@ class Provider {
   }
 
   // Not required, but nice if we can get synced against a peer sooner rather than latter
-  private async tryInitialSync(updateData: Uint8Array, origin: this | any) {
+  private async tryInitialSync(updateData: Uint8Array, origin: this | any): Promise<Boolean | void> {
     const tries = 10;
     const maxWaitTime = 1000;
     let waitTime = 100;
@@ -100,7 +106,9 @@ class Provider {
       if (this.initialSync) {
         return
       }
-      const peers = [...this.node.pubsub.topics.get(stateVectorTopic(this.topic)) || []]
+
+      // needed to type hack 
+      const peers = [...(this.node as any).pubsub.topics.get(stateVectorTopic(this.topic)) || []]
 
       if (peers.length !== 0) {
         const peer = peers[i % peers.length]
@@ -199,7 +207,7 @@ class Provider {
   }
 
   private async onSyncMsg({ stream, connection, ...rest }: { stream: ProtocolStream, connection: Connection }) {
-    await this.runSyncProtocol(stream, connection.remotePeer.toB58String(), false)
+    await this.runSyncProtocol(stream, connection.remotePeer.toString(), false)
   }
 
   private queuePeerSync(peerID: string) {
@@ -215,22 +223,14 @@ class Provider {
 
   private async syncPeer(peerID: string) {
     const thiz = this;
-    const multiaddrs = await this.node.peerStore.addressBook.getMultiaddrsForPeer(PeerId.createFromB58String(peerID));
     let success = false;
-    if (!multiaddrs) {
+    try {
+      const stream = await this.node.dialProtocol(peerIdFromString(peerID), syncProtocol(this.topic)) as any as { stream: ProtocolStream }
+      await this.runSyncProtocol(stream as any, peerID, true)
+      success = true;
       return
-    }
-    for (const ma of multiaddrs) {
-      const maStr = ma.toString()
-      try {
-        const { stream } = await this.node.dialProtocol(maStr, syncProtocol(this.topic)) as any as { stream: ProtocolStream }
-        await this.runSyncProtocol(stream, peerID, true)
-        success = true;
-        return
-      } catch (e) {
-        console.warn(`Failed to sync with ${maStr}`, e)
-        continue;
-      }
+    } catch (e) {
+      console.warn(`Failed to sync with ${peerIdFromString(peerID)}`, e)
     }
 
     throw new Error("Failed to sync with peer")
@@ -239,4 +239,3 @@ class Provider {
 
 // TODO awareness
 
-export default Provider
