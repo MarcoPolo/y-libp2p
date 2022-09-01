@@ -1,4 +1,4 @@
-'use strict'
+
 
 /**
  * These utilities rely on the fixtures defined in test/fixtures
@@ -10,13 +10,13 @@
 
 const Libp2p = require('libp2p')
 const { Multiaddr } = require('multiaddr')
-const PeerId = require('peer-id')
+const PeerId = require('@libp2p/peer-id')
 const Gossipsub = require('libp2p-gossipsub')
 
-const WS = require('libp2p-websockets')
-const filters = require('libp2p-websockets/src/filters')
-const MPLEX = require('libp2p-mplex')
-const { NOISE } = require('@chainsafe/libp2p-noise')
+const WS = require('@libp2p/websockets')
+const filters = require('@libp2p/websockets/src/filters')
+const Mplex = require('@libp2p/mplex')
+const { Noise } = require('@chainsafe/libp2p-noise')
 
 const RelayPeer = {
   id: 'QmckxVrJw1Yo8LqvmDJNUmdAsKtSbiKWmrXJFyKmUraBoN',
@@ -50,9 +50,9 @@ const transportKey = WS.prototype[Symbol.toStringTag]
 
 const defaultConfig = {
   modules: {
-    transport: [WS],
-    streamMuxer: [MPLEX],
-    connEncryption: [NOISE],
+    transports: [new WS()],
+    streamMuxers: [new Mplex()],
+    connEncryption: [new Noise()],
     pubsub: Gossipsub
   },
   config: {
@@ -97,7 +97,7 @@ let currentPeerIdx = 0
  */
 async function createPeer({ peerId, peerIdx = currentPeerIdx, started = true, config = {} } = {}) {
   if (!peerId) {
-    peerId = await PeerId.createFromJSON(Peers[currentPeerIdx++ % Peers.length])
+    peerId = await PeerId.createPeerId(Peers[currentPeerIdx++ % Peers.length])
   }
   const libp2p = await Libp2p.create({
     peerId: peerId,
@@ -136,7 +136,7 @@ function addPeersToAddressBook(peers) {
  */
 async function createPeers({ number = 1, started = true, seedAddressBook = true, config = {} } = {}) {
   const peerIds = await Promise.all(
-    Array.from({ length: number }, (_, i) => Peers[i] ? PeerId.createFromJSON(Peers[i]) : PeerId.create())
+    Array.from({ length: number }, (_, i) => Peers[i] ? PeerId.createPeerId(Peers[i]) : PeerId.createPeerId({ type: "Ed25519"}))
   )
   const peers = await Promise.all(
     Array.from({ length: number }, (_, i) => createPeer({ peerId: peerIds[i], started: false, config: config }))

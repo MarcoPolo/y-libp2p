@@ -1,10 +1,10 @@
-import Provider from "./index"
+import { Provider } from "./index.js"
 import { Doc, Doc as YDoc, } from 'yjs'
-import { Uint8ArrayEquals } from "./util"
+import { Uint8ArrayEquals } from "./util.js"
 import * as Y from 'yjs'
 // @ts-ignore
 import * as awarenessProtocol from 'y-protocols/dist/awareness.cjs'
-import Libp2p from 'libp2p'
+import {Libp2p as ILibp2p} from 'libp2p'
 // @ts-ignore
 import { createPeer } from './test-utils/create-peer.js'
 
@@ -25,8 +25,8 @@ it.only('Provider syncs doc across 2 peers', async () => {
   const ydoc1 = new YDoc()
   const ydoc2 = new YDoc()
 
-  const node1: Libp2p = await createPeer()
-  const node2: Libp2p = await createPeer()
+  const node1: ILibp2p = await createPeer()
+  const node2: ILibp2p = await createPeer()
 
   const provider1 = new Provider(ydoc1, node1, topic)
   const provider2 = new Provider(ydoc2, node2, topic)
@@ -60,8 +60,8 @@ it('Provider syncs doc across 2 unsynced peers', async () => {
   const ydoc2 = new YDoc()
   ydoc2.getText("testDoc").insert(0, "Good bye")
 
-  const node1: Libp2p = await createPeer()
-  const node2: Libp2p = await createPeer()
+  const node1: ILibp2p = await createPeer()
+  const node2: ILibp2p = await createPeer()
 
   const provider1 = new Provider(ydoc1, node1, topic)
   const provider2 = new Provider(ydoc2, node2, topic)
@@ -96,11 +96,11 @@ function printStates(docs: { [key: string]: YDoc }) {
   console.log("--- Doc States ---" + str)
 }
 
-async function connectNodes(nodes: Libp2p[]) {
+async function connectNodes(nodes: ILibp2p[]) {
   const firstNode = nodes[0]
   for (let i = 1; i < nodes.length; i++) {
     const node = nodes[i]
-    await firstNode.dial(node.multiaddrs[0] + '/p2p/' + node.peerId.toB58String())
+    await firstNode.dial(node.peerId)
     await firstNode.ping(node.peerId)
     await node.ping(firstNode.peerId)
   }
@@ -110,7 +110,7 @@ async function connectNodes(nodes: Libp2p[]) {
       if (i === j) continue
       const node = nodes[i]
       const otherNode = nodes[j]
-      node.peerStore.addressBook.set(otherNode.peerId, otherNode.multiaddrs)
+      node.peerStore.addressBook.set(otherNode.peerId, otherNode.getMultiaddrs())
     }
   }
 }
@@ -120,8 +120,8 @@ it('Provider syncs awareness across 2 peers', async () => {
   const ydoc1 = new YDoc()
   const ydoc2 = new YDoc()
 
-  const node1: Libp2p = await createPeer()
-  const node2: Libp2p = await createPeer()
+  const node1: ILibp2p = await createPeer()
+  const node2: ILibp2p = await createPeer()
 
   const provider1 = new Provider(ydoc1, node1, topic)
   const provider2 = new Provider(ydoc2, node2, topic)
